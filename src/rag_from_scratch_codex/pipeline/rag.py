@@ -19,6 +19,7 @@ from rag_from_scratch_codex.loaders.markdown import Document, MarkdownLoader
 from rag_from_scratch_codex.pipeline.trace import (
     ChunkSummaryTrace,
     ChunkTrace,
+    EmbeddingTrace,
     FinalAnswerTrace,
     FileChunkCountTrace,
     IndexingMetadataTrace,
@@ -76,7 +77,12 @@ class IngestionPipeline:
         chunks = get_or_create_chunks(documents, self.chunker, self.config)
         embeddings = self.embedding_model.embed_chunks(chunks)
         self.vector_store.add(chunks, embeddings)
-        trace = self._build_trace(documents=documents, chunks=chunks, embeddings_count=len(embeddings))
+        trace = self._build_trace(
+            documents=documents,
+            chunks=chunks,
+            embeddings=embeddings,
+            embeddings_count=len(embeddings),
+        )
         return IngestionResult(
             documents=documents,
             chunks=chunks,
@@ -88,6 +94,7 @@ class IngestionPipeline:
         self,
         documents: list[Document],
         chunks: list[Chunk],
+        embeddings: list[list[float]],
         embeddings_count: int,
     ) -> IngestionRunTrace:
         """Build a structured trace for one ingestion run."""
@@ -107,6 +114,10 @@ class IngestionPipeline:
             documents=[LoadedDocumentTrace.from_document(document) for document in documents],
             chunks=[ChunkTrace.from_chunk(chunk) for chunk in chunks],
             chunk_summaries=[ChunkSummaryTrace.from_chunk(chunk) for chunk in chunks],
+            embeddings=[
+                EmbeddingTrace.from_chunk_and_vector(chunk, vector)
+                for chunk, vector in zip(chunks, embeddings)
+            ],
             counts_per_file=sorted(
                 counts_by_path.values(),
                 key=lambda item: item.relative_path,
@@ -148,8 +159,10 @@ class QueryPipeline:
     ) -> QueryRunTrace:
         """Build a structured trace for one query run."""
         prompt_payload = self._build_prompt_payload(query, retrieved_chunks)
+        query_embedding = getattr(self.retriever, "last_query_embedding", [])
         return QueryRunTrace(
             query=query,
+            query_embedding=list(query_embedding),
             retrieval_results=[
                 RetrievalResultTrace.from_similar_chunk(item) for item in retrieved_chunks
             ],

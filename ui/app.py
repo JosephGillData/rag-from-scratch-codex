@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import sys
 from dataclasses import replace
 from pathlib import Path
@@ -321,6 +322,122 @@ def _render_retrieval_section() -> None:
             st.code(item.chunk.text)
 
 
+def _cosine_similarity(left: list[float], right: list[float]) -> float | None:
+    """Return cosine similarity for two equal-length vectors."""
+    if not left or not right or len(left) != len(right):
+        return None
+
+    left_norm = math.sqrt(sum(value * value for value in left))
+    right_norm = math.sqrt(sum(value * value for value in right))
+    if left_norm == 0 or right_norm == 0:
+        return None
+
+    dot_product = sum(left_value * right_value for left_value, right_value in zip(left, right))
+    return dot_product / (left_norm * right_norm)
+
+
+def _render_embedding_section() -> None:
+    """Render the embedding explorer section."""
+    st.subheader("Embedding Explorer")
+    st.caption(
+        "Embeddings turn each chunk into a numeric vector that the retriever can compare. "
+        "This view lets you inspect one chunk's vector and compare it with the latest query."
+    )
+    ingestion_result = st.session_state.get("ingestion_result")
+    if not ingestion_result or not ingestion_result.trace or not ingestion_result.trace.embeddings:
+        st.info("Run ingestion to inspect chunk embeddings.")
+        return
+
+    trace = ingestion_result.trace
+    query_result = st.session_state.get("query_result")
+    query_trace = query_result.trace if query_result and query_result.trace else None
+
+    embedding_by_id = {item.chunk_id: item for item in trace.embeddings}
+    chunk_by_id = {
+        f"{chunk.metadata.get('relative_path', 'unknown')}::chunk-{chunk.metadata.get('chunk_index', 'unknown')}": chunk
+        for chunk in trace.chunks
+    }
+
+    selectable_embeddings = sorted(
+        trace.embeddings,
+        key=lambda item: (item.relative_path, int(item.chunk_index) if item.chunk_index.isdigit() else 0),
+    )
+    selected_chunk_id = st.selectbox(
+        "Embedded chunk",
+        options=[item.chunk_id for item in selectable_embeddings],
+        format_func=lambda chunk_id: chunk_id.replace("::", " / "),
+        key="embedding_explorer_selected_chunk",
+    )
+
+    selected_embedding = embedding_by_id[selected_chunk_id]
+    selected_chunk = chunk_by_id.get(selected_chunk_id)
+    vector = selected_embedding.vector
+
+    if not vector:
+        st.warning("The selected chunk does not have a stored embedding vector.")
+        return
+
+    stats_left, stats_middle, stats_right = st.columns(3)
+    with stats_left:
+        st.metric("Dimensions", len(vector))
+    with stats_middle:
+        st.metric("Min value", f"{min(vector):.4f}")
+    with stats_right:
+        st.metric("Max value", f"{max(vector):.4f}")
+
+    similarity = None
+    query_embedding = query_trace.query_embedding if query_trace else []
+    if query_embedding:
+        similarity = _cosine_similarity(vector, query_embedding)
+
+    secondary_left, secondary_middle, secondary_right = st.columns(3)
+    with secondary_left:
+        st.metric("Mean value", f"{(sum(vector) / len(vector)):.4f}")
+    with secondary_middle:
+        if similarity is None:
+            st.metric("Query similarity", "n/a")
+        else:
+            st.metric("Query similarity", f"{similarity:.4f}")
+    with secondary_right:
+        matching_rank = next(
+            (
+                index
+                for index, item in enumerate(query_trace.retrieval_results, start=1)
+                if item.id == selected_chunk_id
+            ),
+            None,
+        ) if query_trace else None
+        st.metric("Latest query rank", matching_rank if matching_rank is not None else "not retrieved")
+
+    st.caption("Value distribution across all embedding dimensions")
+    histogram_rows = [{"value": value} for value in vector]
+    st.bar_chart(histogram_rows, x=None, y="value", use_container_width=True)
+
+    with st.expander("Embedding metadata", expanded=False):
+        st.json(
+            {
+                "chunk_id": selected_embedding.chunk_id,
+                "relative_path": selected_embedding.relative_path,
+                "chunk_index": selected_embedding.chunk_index,
+                "dimensions": len(vector),
+            }
+        )
+
+    if selected_chunk is not None:
+        with st.expander("Chunk text", expanded=False):
+            st.json(selected_chunk.metadata)
+            st.code(selected_chunk.text)
+
+    with st.expander("Raw embedding values", expanded=False):
+        st.json(vector)
+
+    if query_trace and query_embedding:
+        with st.expander("Latest query embedding", expanded=False):
+            st.caption(f"Query: {query_trace.query}")
+            st.write(f"Dimensions: {len(query_embedding)}")
+            st.json(query_embedding)
+
+
 def _render_prompt_section() -> None:
     """Render the prompt viewer section."""
     st.subheader("Prompt Viewer")
@@ -548,6 +665,9 @@ def main() -> None:
 
     with st.container():
         _render_chunk_section()
+
+    with st.container():
+        _render_embedding_section()
 
     with st.container():
         _render_retrieval_section()

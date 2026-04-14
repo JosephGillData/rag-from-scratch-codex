@@ -223,3 +223,10 @@ print(query_result.sources)
 ## Status
 
 This is the initial scaffold only. The full RAG logic is intentionally not implemented yet.
+
+## TODO
+
+- Verify that the RAG prompt actually produces grounded, reliable answers across a small set of representative questions.
+- Add a lightweight evaluation workflow so prompt changes can be tested against expected answers or source references.
+- Expand the UI and config model to support repeatable experiments across chunking, retrieval, and prompt settings.
+- Make experiment results easier to compare side by side so changes in retrieval quality and answer quality are visible.

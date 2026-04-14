@@ -29,6 +29,7 @@ class VectorStoreRetriever(Retriever):
         """Create a retriever from an embedding model and vector store."""
         self.embedding_model = embedding_model
         self.vector_store = vector_store
+        self.last_query_embedding: list[float] = []
 
     @classmethod
     def from_config(
@@ -49,4 +50,5 @@ class VectorStoreRetriever(Retriever):
             raise ValueError("top_k must be greater than zero.")
 
         query_embedding = self.embedding_model.embed_query(query)
+        self.last_query_embedding = list(query_embedding)
         return self.vector_store.query_similar(query_embedding, top_k=top_k)

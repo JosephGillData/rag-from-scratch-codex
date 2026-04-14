@@ -72,6 +72,33 @@ class ChunkSummaryTrace:
 
 
 @dataclass
+class EmbeddingTrace:
+    """A chunk embedding captured during ingestion for UI inspection."""
+
+    chunk_id: str
+    relative_path: str
+    chunk_index: str
+    vector: list[float] = field(default_factory=list)
+
+    @classmethod
+    def from_chunk_and_vector(
+        cls,
+        chunk: Chunk,
+        vector: list[float],
+    ) -> "EmbeddingTrace":
+        """Create an embedding trace from a chunk and its vector."""
+        metadata = chunk.metadata
+        relative_path = metadata.get("relative_path", "unknown")
+        chunk_index = metadata.get("chunk_index", "unknown")
+        return cls(
+            chunk_id=f"{relative_path}::chunk-{chunk_index}",
+            relative_path=relative_path,
+            chunk_index=chunk_index,
+            vector=list(vector),
+        )
+
+
+@dataclass
 class FileChunkCountTrace:
     """Chunk counts grouped by source file."""
 
@@ -164,6 +191,7 @@ class IngestionRunTrace:
     documents: list[LoadedDocumentTrace] = field(default_factory=list)
     chunks: list[ChunkTrace] = field(default_factory=list)
     chunk_summaries: list[ChunkSummaryTrace] = field(default_factory=list)
+    embeddings: list[EmbeddingTrace] = field(default_factory=list)
     counts_per_file: list[FileChunkCountTrace] = field(default_factory=list)
     indexing_metadata: IndexingMetadataTrace | None = None
     embeddings_count: int = 0
@@ -178,6 +206,7 @@ class QueryRunTrace:
     """Trace for one query run."""
 
     query: str
+    query_embedding: list[float] = field(default_factory=list)
     retrieval_results: list[RetrievalResultTrace] = field(default_factory=list)
     prompt_payload: PromptPayloadTrace | None = None
     final_answer: FinalAnswerTrace | None = None
