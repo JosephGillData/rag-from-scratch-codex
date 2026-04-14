@@ -45,6 +45,17 @@ cp .env.example .env
 python -m rag_from_scratch_codex --help
 ```
 
+## Run The UI
+
+Launch the local Streamlit dashboard from the repository root:
+
+```bash
+streamlit run ui/app.py
+```
+
+The UI is intentionally thin and local-first. It is meant to become an
+observability dashboard for the RAG pipeline rather than a generic chat app.
+
 ## Configuration
 
 Default settings live in `config.yaml`. The initial config is intentionally small and readable so it can evolve with the project.
@@ -212,3 +223,10 @@ print(query_result.sources)
 ## Status
 
 This is the initial scaffold only. The full RAG logic is intentionally not implemented yet.
+
+## TODO
+
+- Verify that the RAG prompt actually produces grounded, reliable answers across a small set of representative questions.
+- Add a lightweight evaluation workflow so prompt changes can be tested against expected answers or source references.
+- Expand the UI and config model to support repeatable experiments across chunking, retrieval, and prompt settings.
+- Make experiment results easier to compare side by side so changes in retrieval quality and answer quality are visible.
