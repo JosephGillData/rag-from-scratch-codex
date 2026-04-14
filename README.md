@@ -170,6 +170,45 @@ print(result.answer)
 print(result.sources)
 ```
 
+## Pipeline Example
+
+```python
+from rag_from_scratch_codex.chunking import SimpleTextChunker
+from rag_from_scratch_codex.config.settings import load_config
+from rag_from_scratch_codex.embeddings import OpenAIEmbeddingModel
+from rag_from_scratch_codex.generation import OpenAIAnswerGenerator
+from rag_from_scratch_codex.loaders.markdown import MarkdownLoader
+from rag_from_scratch_codex.pipeline import IngestionPipeline, QueryPipeline
+from rag_from_scratch_codex.retrieval import VectorStoreRetriever
+from rag_from_scratch_codex.vectorstore import ChromaVectorStore
+
+config = load_config()
+
+loader = MarkdownLoader()
+chunker = SimpleTextChunker.from_config(config)
+embedding_model = OpenAIEmbeddingModel.from_config(config)
+vector_store = ChromaVectorStore.from_config(config)
+generator = OpenAIAnswerGenerator.from_config(config)
+retriever = VectorStoreRetriever(embedding_model=embedding_model, vector_store=vector_store)
+
+ingestion_pipeline = IngestionPipeline(
+    loader=loader,
+    chunker=chunker,
+    embedding_model=embedding_model,
+    vector_store=vector_store,
+    config=config,
+)
+ingestion_result = ingestion_pipeline.run()
+
+query_pipeline = QueryPipeline(retriever=retriever, generator=generator)
+query_result = query_pipeline.run("What topics are covered in these notes?", top_k=config.top_k)
+
+print(len(ingestion_result.documents))
+print(len(ingestion_result.chunks))
+print(query_result.answer)
+print(query_result.sources)
+```
+
 ## Status
 
 This is the initial scaffold only. The full RAG logic is intentionally not implemented yet.
