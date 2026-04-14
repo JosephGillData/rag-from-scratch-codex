@@ -82,6 +82,94 @@ print(chunks[0].text)
 print(chunks[0].metadata)
 ```
 
+## Embeddings Example
+
+```python
+from rag_from_scratch_codex.chunking import SimpleTextChunker
+from rag_from_scratch_codex.config.settings import load_config
+from rag_from_scratch_codex.embeddings import OpenAIEmbeddingModel
+from rag_from_scratch_codex.loaders.markdown import MarkdownLoader
+
+config = load_config()
+documents = MarkdownLoader().load_from_config(config)
+chunks = SimpleTextChunker.from_config(config).chunk_documents(documents)
+
+embedding_model = OpenAIEmbeddingModel.from_config(config)
+chunk_embeddings = embedding_model.embed_chunks(chunks[:5])
+query_embedding = embedding_model.embed_query("What is this vault about?")
+
+print(len(chunk_embeddings))
+print(len(query_embedding))
+```
+
+## Vector Store Example
+
+```python
+from rag_from_scratch_codex.chunking import SimpleTextChunker, get_or_create_chunks
+from rag_from_scratch_codex.config.settings import load_config
+from rag_from_scratch_codex.embeddings import OpenAIEmbeddingModel
+from rag_from_scratch_codex.loaders.markdown import MarkdownLoader
+from rag_from_scratch_codex.vectorstore import ChromaVectorStore
+
+config = load_config()
+documents = MarkdownLoader().load_from_config(config)
+chunks = get_or_create_chunks(documents, SimpleTextChunker.from_config(config), config)
+
+embedding_model = OpenAIEmbeddingModel.from_config(config)
+chunk_embeddings = embedding_model.embed_chunks(chunks)
+
+vector_store = ChromaVectorStore.from_config(config)
+vector_store.add(chunks, chunk_embeddings)
+
+query_embedding = embedding_model.embed_query("What is this knowledge base about?")
+results = vector_store.query_similar(query_embedding, top_k=config.top_k)
+
+print(results[0].chunk.metadata)
+print(results[0].distance)
+```
+
+## Retrieval Example
+
+```python
+from rag_from_scratch_codex.config.settings import load_config
+from rag_from_scratch_codex.embeddings import OpenAIEmbeddingModel
+from rag_from_scratch_codex.retrieval import VectorStoreRetriever
+from rag_from_scratch_codex.vectorstore import ChromaVectorStore
+
+config = load_config()
+embedding_model = OpenAIEmbeddingModel.from_config(config)
+vector_store = ChromaVectorStore.from_config(config)
+retriever = VectorStoreRetriever(embedding_model=embedding_model, vector_store=vector_store)
+
+results = retriever.retrieve("What topics are covered in these notes?", top_k=config.top_k)
+
+print(results[0].chunk.text)
+print(results[0].chunk.metadata)
+print(results[0].distance)
+```
+
+## Generation Example
+
+```python
+from rag_from_scratch_codex.config.settings import load_config
+from rag_from_scratch_codex.embeddings import OpenAIEmbeddingModel
+from rag_from_scratch_codex.generation import OpenAIAnswerGenerator
+from rag_from_scratch_codex.retrieval import VectorStoreRetriever
+from rag_from_scratch_codex.vectorstore import ChromaVectorStore
+
+config = load_config()
+embedding_model = OpenAIEmbeddingModel.from_config(config)
+vector_store = ChromaVectorStore.from_config(config)
+retriever = VectorStoreRetriever(embedding_model=embedding_model, vector_store=vector_store)
+generator = OpenAIAnswerGenerator.from_config(config)
+
+retrieved_chunks = retriever.retrieve("What topics are covered in these notes?", top_k=config.top_k)
+result = generator.generate("What topics are covered in these notes?", retrieved_chunks)
+
+print(result.answer)
+print(result.sources)
+```
+
 ## Status
 
 This is the initial scaffold only. The full RAG logic is intentionally not implemented yet.
