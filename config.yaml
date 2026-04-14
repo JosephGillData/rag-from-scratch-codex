@@ -1,0 +1,10 @@
+docs_path: ./docs
+chunk_size: 500
+chunk_overlap: 50
+use_saved_chunks: false
+chunks_path: ./storage/chunks.json
+embedding_model: text-embedding-3-small
+vector_store_path: ./storage/chroma
+top_k: 5
+show_sources: true
+show_retrieved_chunks: false
