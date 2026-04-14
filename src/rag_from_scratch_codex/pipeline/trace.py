@@ -7,8 +7,10 @@ CLI, render in the UI, and serialize with standard dataclass tooling.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
+from pathlib import Path
 
 from rag_from_scratch_codex.chunking.base import Chunk
+from rag_from_scratch_codex.config.settings import AppConfig
 from rag_from_scratch_codex.generation.base import GenerationResult
 from rag_from_scratch_codex.loaders.markdown import Document
 from rag_from_scratch_codex.vectorstore.base import SimilarChunk
@@ -38,6 +40,66 @@ class ChunkTrace:
     def from_chunk(cls, chunk: Chunk) -> "ChunkTrace":
         """Create a trace model from a chunk."""
         return cls(text=chunk.text, metadata=dict(chunk.metadata))
+
+
+@dataclass
+class ChunkSummaryTrace:
+    """A lightweight summary of one chunk for inspection views."""
+
+    chunk_id: str
+    relative_path: str
+    chunk_index: str
+    start_char: int
+    end_char: int
+    char_count: int
+
+    @classmethod
+    def from_chunk(cls, chunk: Chunk) -> "ChunkSummaryTrace":
+        """Create a summary trace from a chunk."""
+        metadata = chunk.metadata
+        relative_path = metadata.get("relative_path", "unknown")
+        chunk_index = metadata.get("chunk_index", "unknown")
+        start_char = int(metadata.get("start_char", "0"))
+        end_char = int(metadata.get("end_char", str(len(chunk.text))))
+        return cls(
+            chunk_id=f"{relative_path}::chunk-{chunk_index}",
+            relative_path=relative_path,
+            chunk_index=chunk_index,
+            start_char=start_char,
+            end_char=end_char,
+            char_count=len(chunk.text),
+        )
+
+
+@dataclass
+class FileChunkCountTrace:
+    """Chunk counts grouped by source file."""
+
+    relative_path: str
+    file_name: str
+    chunk_count: int
+
+
+@dataclass
+class IndexingMetadataTrace:
+    """Small metadata summary for one ingestion run."""
+
+    docs_path: str
+    chunks_path: str
+    use_saved_chunks: bool
+    vector_store_path: str
+    embedding_model: str
+
+    @classmethod
+    def from_config(cls, config: AppConfig) -> "IndexingMetadataTrace":
+        """Create indexing metadata from application config."""
+        return cls(
+            docs_path=config.docs_path,
+            chunks_path=config.chunks_path,
+            use_saved_chunks=config.use_saved_chunks,
+            vector_store_path=config.vector_store_path,
+            embedding_model=config.embedding_model,
+        )
 
 
 @dataclass
@@ -101,6 +163,9 @@ class IngestionRunTrace:
 
     documents: list[LoadedDocumentTrace] = field(default_factory=list)
     chunks: list[ChunkTrace] = field(default_factory=list)
+    chunk_summaries: list[ChunkSummaryTrace] = field(default_factory=list)
+    counts_per_file: list[FileChunkCountTrace] = field(default_factory=list)
+    indexing_metadata: IndexingMetadataTrace | None = None
     embeddings_count: int = 0
 
     def to_dict(self) -> dict:
