@@ -45,6 +45,17 @@ cp .env.example .env
 python -m rag_from_scratch_codex --help
 ```
 
+## Run The UI
+
+Launch the local Streamlit dashboard from the repository root:
+
+```bash
+streamlit run ui/app.py
+```
+
+The UI is intentionally thin and local-first. It is meant to become an
+observability dashboard for the RAG pipeline rather than a generic chat app.
+
 ## Configuration
 
 Default settings live in `config.yaml`. The initial config is intentionally small and readable so it can evolve with the project.
